@@ -12,10 +12,10 @@ module civilization_mod
         real(8) :: rx, ry, rz = 0
         integer :: status = 0             ! 0 (unoccupied), 1 (active colony), 2 (travelling), 3 (targeted)
         integer :: target = 0             ! index of the destination 
-        real(8) :: total_distance = 0.0_8
+        real(8) :: total_distance = 0.0_8  !total distance travelled by the planet including the failed attempts 
         real(8) :: remaining_distance = 0.0_8
-        integer :: counter = 0  
-        integer, dimension(30) :: origin_history 
+        integer :: counter = 0   !counts the number of failed attempts 
+        integer, dimension(1) :: origin_history 
         
     end type civil 
 
@@ -23,7 +23,7 @@ contains
 
     subroutine find_neighbor(i, N_pt, civil_xyz, minimum_distance_id, minimum_distance)
         integer, intent(in) :: i, N_pt
-        type(civil), intent(in) :: civil_xyz(:)
+        type(civil), dimension(N_pt), intent(in) :: civil_xyz(:)
         
         ! Outputs must use intent(out)
         integer, intent(out) :: minimum_distance_id(1) !index of the nearest neighbor 
@@ -43,8 +43,9 @@ contains
         !scans each planets 
         do j = 1, N_pt
             !searches only planets of status = 0 and bypass search the last 5 planets 
+            
             if (j /= i .and. civil_xyz(j)%status == 0) then
-                if(any(civil_xyz(i)%origin_history == j))  cycle !-> if j is an element of the origin history, we do not search it.
+                if(any(civil_xyz(j)%origin_history == i)) cycle !-> if j is an element of the origin history, we do not search it.
                 dist_dummy = (civil_xyz(i)%rx - civil_xyz(j)%rx)**2 + &
                                  (civil_xyz(i)%ry - civil_xyz(j)%ry)**2 + &
                                  (civil_xyz(i)%rz - civil_xyz(j)%rz)**2
@@ -77,11 +78,13 @@ contains
             planets(n)%ry = 10.0_8 * pcg_random_real() - 5.0_8
             planets(n)%rz = 10.0_8 * pcg_random_real() - 5.0_8
 
+            !every planet created, we initialize its objects to 0
             planets(n)%status = 0
             planets(n)%target = 0
             planets(n)%remaining_distance = 0 
             planets(n)%total_distance = 0
             planets(n)%origin_history(:) =0
+            planets(n)%counter = 0 
 
             init_distance(n) = planets(n)%rx**2 + planets(n)%ry**2 + planets(n)%rz**2
 
@@ -93,6 +96,17 @@ contains
 
 
     end subroutine initialize_universe
+
+    subroutine planet_status(planet,index, N_pt)
+        !this subroutine prints out the status of the planet 
+        integer, intent(in) :: N_pt, index
+        type(civil), dimension(N_pt) :: planet
+        
+        print*, "Planet position : ", planet(index)%rx, planet(index)%ry, planet(index)%rz 
+        print*, "Status: ",planet(index)%status,  "Target: ", planet(index)%target
+        ! print*, "Last targets: ", planet(index)%origin_history
+
+    end subroutine 
 
 end module civilization_mod
 
