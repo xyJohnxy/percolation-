@@ -1,58 +1,3 @@
-module civilization_mod
-    use pcg_module
-    implicit none
-
-    ! Global parameters
-    real(8), parameter :: radius = 5.0_8
-    real(8), parameter :: diameter = 10.0_8
-
-    ! Derived type definition accessible to all routines using this module
-    type :: civil 
-        real(8) :: rx, ry, rz
-        integer :: status             ! 0 (unoccupied), 1 (active colony), 2 (travelling), 3 (targeted)
-        integer :: target             ! index of the destination 
-        real(8) :: total_distance = 0.0_8
-        real(8) :: remaining_distance
-    end type civil 
-
-contains
-
-    subroutine find_neighbor(i, N_pt, civil_xyz, minimum_distance_id, minimum_distance)
-        integer, intent(in) :: i, N_pt
-        type(civil), intent(in) :: civil_xyz(:)
-        
-        ! Outputs must use intent(out)
-        integer, intent(out) :: minimum_distance_id(1) 
-        real(8), intent(out) :: minimum_distance
-
-        integer :: j
-        real(8) :: dist_min, dist_dummy
-
-        ! Use huge() so non-matching sites are never picked by minloc
-        dist_min = huge(1.0_8)
-        
-        
-        do j = 1, N_pt
-            if (j /= i .and. civil_xyz(j)%status == 0) then 
-                dist_dummy = (civil_xyz(i)%rx - civil_xyz(j)%rx)**2 + &
-                                 (civil_xyz(i)%ry - civil_xyz(j)%ry)**2 + &
-                                 (civil_xyz(i)%rz - civil_xyz(j)%rz)**2
-
-                if(dist_dummy < dist_min) then
-                    dist_min = dist_dummy 
-                    minimum_distance_id(1) = j
-                end if 
-            end if 
-        end do 
-
-        ! minimum_distance_id = minloc(dist_n(1:N_pt))
-        minimum_distance = sqrt(dist_min)
-
-    end subroutine find_neighbor
-
-end module civilization_mod
-
-!------------------------------------------------------------------------------------------------------------
 
 program sample
     use pcg_module 
@@ -79,7 +24,7 @@ program sample
     real(8) :: random_number !death rate, random_number
     integer :: failed_counter
     integer(8) :: no_of_sims_counter
-    real(8) :: cpath, t_total, mean_time, std_t_statistic
+    real(8) :: cpath, t_total, std_t_statistic
     integer(8) :: seed
 
     call cpu_time(start_time)
@@ -95,7 +40,7 @@ program sample
 
     n = 1
     H = 0.06
-    k = 0.95
+    k = 0.0
     cpath = 0
     t_total = 0  
     std_t_statistic = 0
@@ -108,7 +53,7 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 10, file = 'sims=500,k=0.0,H=0.0', action = 'write', status = 'replace')
+    open(unit = 10, file = 'sims=1,k=vary', action = 'write', status = 'replace')
     ! open(unit = 11, file = 'n(t)_vs_t_k=0.5.dat', action = 'write', status = 'replace')
     ! open(unit = 12, file = 'n(t)_vs_t_k=0.8,h=0.1.dat', action = 'write', status = 'replace')
     ! open(unit = 13, file = "H vs time_completed.dat", action = "write", status = "replace")
@@ -120,6 +65,8 @@ program sample
     ! write(12,*) occupied, clock, tj, tj_matter
     ! Generate random civilizations
     ! do while(H <= 0.08)
+
+
     do no_of_sims_counter = 1, No_of_sims 
     ! do while(k <= 0.8)
     call pcg_init(seed+no_of_sims_counter,seed+no_of_sims_counter)
@@ -134,21 +81,7 @@ program sample
     ! H = H + 0.005
     ! k = k + 0.1
 
-    do while (n <= N_pt)
-        civil_xyz(n)%rx = 10.0_8 * pcg_random_real() - 5.0_8
-        civil_xyz(n)%ry = 10.0_8 * pcg_random_real() - 5.0_8
-        civil_xyz(n)%rz = 10.0_8 * pcg_random_real() - 5.0_8
-
-        civil_xyz(n)%status = 0
-
-        init_distance(n) = civil_xyz(n)%rx**2 + civil_xyz(n)%ry**2 + civil_xyz(n)%rz**2
-
-        if (init_distance(n) > radius**2) cycle
-
-        ! write(10,*) n, civil_xyz(n)%rx, civil_xyz(n)%ry, civil_xyz(n)%rz, init_distance(n)
-        n = n + 1 
-    end do
-    ! close(10)
+    call initialize_universe(civil_xyz, N_pt, init_distance)
 
     ! Locate starting civilization closest to center
     min_init_distance_id = minloc(init_distance(1:N_pt))
