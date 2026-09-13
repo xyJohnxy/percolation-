@@ -67,7 +67,7 @@ program sample
     clock = 0.0_8
     n = 1
     H = 0.06
-    k = 0.10
+    k = 0.80
     min_init_distance_id(:) = 0
     minimum_distance = 0
     j = 1 
@@ -85,7 +85,7 @@ program sample
         rn_checker = count(random_number_array > k)
     end do
 
-    
+    print*, "Generated random numbers info : ", (count(random_number_array >= k)), rna_size
 
     ! Locate starting civilization closest to center
     min_init_distance_id = minloc(init_distance(1:N_pt))
@@ -101,12 +101,15 @@ program sample
 
         !we will ony assign targets if there are still unoccupied planets. 
         ! Step 1: Scan for active colonies (status 1) and assign targets
-        
+        possible_targets = count(civil_xyz(:)%status == 0)
         do i = 1, N_pt
-            possible_targets = count(civil_xyz(:)%status == 0)
             if (civil_xyz(i)%status == 1 .and. possible_targets > 0) then 
                 call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
-        
+                ! Inside find_neighbor or right after calling it:
+                if (min_distance >= huge(1.0_8) / 2.0_8) then
+                    ! Reset origin history to allow retries if trapped
+                    civil_xyz(min_dist_id(1))%origin_history = 0
+                end if
 
                 ! Ensure a valid unoccupied neighbor was found
                 if (min_distance < huge(1.0_8) / 2.0_8) then
@@ -187,8 +190,6 @@ program sample
       
         ti = tj 
         ti_matter = tj_matter
-
-        print*, rna_counter, occupied, possible_targets, random_number
          
     end do !this loop will stop when all the planets are occupied 
     
@@ -203,7 +204,6 @@ end do !this loop will stop after 500 simulations
     call cpu_time(end_time)
     
     print*, "DONE"
-    print*, "Generated random numbers info : ", (count(random_number_array > k)), rna_size
     print*, "k = ", k, "Success occupation: ",occupied ,'Failed occupation', failed_counter
     print*, "Number of unoccupied sites: ", count(civil_xyz(:)%status == 0 )
     print*, "Number of occupied sites: ", count(civil_xyz(:)%status == 1 )
