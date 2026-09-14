@@ -102,9 +102,10 @@ program sample
         !we will ony assign targets if there are still unoccupied planets. 
         ! Step 1: Scan for active colonies (status 1) and assign targets
         
-        do i = 1, N_pt
+        do while (occupied < count(civil_xyz(:)%status == 3) .or. possible_targets  > 0 )
             possible_targets = count(civil_xyz(:)%status == 0)
-            if (civil_xyz(i)%status == 1 .and. possible_targets > 0) then 
+            do i = 1, N_pt
+            if (civil_xyz(i)%status == 1) then 
                 call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
         
 
@@ -123,6 +124,8 @@ program sample
             else if (civil_xyz(i)%status == 2) then 
                 minimum_distances(i) = civil_xyz(i)%remaining_distance
             end if 
+
+        end do 
 
         end do !this loop will stop only when all the occupied points find its target 
         

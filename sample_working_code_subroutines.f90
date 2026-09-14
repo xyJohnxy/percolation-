@@ -29,11 +29,22 @@ contains
         integer, intent(out) :: minimum_distance_id(1) !index of the nearest neighbor 
         real(8), intent(out) :: minimum_distance  !distance of the nearest neighbor
 
+        !local variables
         integer :: j
         real(8) :: dist_min, dist_dummy
+        integer :: possible_targets 
 
-        minimum_distance_id(1) = 0 
-        minimum_distance = huge(1.0_8)
+        !idea 
+        !1. If there are no remaining targets, we stop from looking
+        possible_targets = count(civil_xyz(:)%status == 0)
+
+        !if possible_targets = 0
+        ! do not find neighbor  
+        !else if possible targets > 0
+        ! find neighbor 
+
+        minimum_distance_id(1) = 0   !-> I initialized a minimum ditance ID
+        minimum_distance = huge(1.0_8)  !-> I initialized a minimum distance 
         
         ! we initialize the minimum distance to a large number so that it would immediately update the time it finds a closest neighbor
         dist_min = huge(1.0_8)
