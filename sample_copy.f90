@@ -61,7 +61,7 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 5000, No_of_sims = 1
+    integer, parameter :: N_pt = 5000, No_of_sims = 10
     real(8), parameter :: H_fixed = 0.001 !, k = 0.6 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -79,8 +79,12 @@ program sample
     real(8) :: random_number !death rate, random_number
     integer :: failed_counter
     integer(8) :: no_of_sims_counter
-    real(8) :: cpath, t_total, mean_time, std_t_statistic
+    real(8) :: cpath, t_total
     integer(8) :: seed
+
+    !statistics variables 
+    real(8), dimension(No_of_sims) :: occupation_t_static 
+    real(8) :: mean_time_s = 0, std_static = 0
 
     call cpu_time(start_time)
     seed = 48
@@ -95,10 +99,10 @@ program sample
 
     n = 1
     H = 0.06
-    k = 0.95
+    k = 0.70_8
     cpath = 0
     t_total = 0  
-    std_t_statistic = 0
+
 
     print*, "working"
     ! Allocate array sizes 
@@ -108,21 +112,11 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 10, file = 'sims=500,k=0.0,H=0.0', action = 'write', status = 'replace')
-    ! open(unit = 11, file = 'n(t)_vs_t_k=0.5.dat', action = 'write', status = 'replace')
-    ! open(unit = 12, file = 'n(t)_vs_t_k=0.8,h=0.1.dat', action = 'write', status = 'replace')
-    ! open(unit = 13, file = "H vs time_completed.dat", action = "write", status = "replace")
-    ! open(unit = 14, file = "500sims_average n(t) vs time", action = "write", status = "replace")
-    ! open(unit = 15, file = "n(t)_vs_t_vary_k=0.0.dat", action = "write", status = 'replace')
-    ! open(unit = 16, file = "n(t)_vs_t_vary_k.dat", action = "write", status = 'replace')
-    ! print*, "Occupied = ", occupied, "failed = ", failed_counter, 'Static Time = ', clock, 'Dark energy dominated = ', tj
-    ! write(11,*) occupied, clock, tj
-    ! write(12,*) occupied, clock, tj, tj_matter
-    ! Generate random civilizations
-    ! do while(H <= 0.08)
+    open(unit = 10 , file = "sims=10,k=vary.dat", position = "APPEND", action = "write")
+    
     do no_of_sims_counter = 1, No_of_sims 
-    ! do while(k <= 0.8)
-    call pcg_init(seed+no_of_sims_counter,seed+no_of_sims_counter)
+    
+    call pcg_init(seed,no_of_sims_counter)
     occupied = 0
     failed_counter = 0
     ti = 0.0_8
@@ -144,10 +138,8 @@ program sample
         init_distance(n) = civil_xyz(n)%rx**2 + civil_xyz(n)%ry**2 + civil_xyz(n)%rz**2
 
         if (init_distance(n) > radius**2) cycle
-
-        ! write(10,*) n, civil_xyz(n)%rx, civil_xyz(n)%ry, civil_xyz(n)%rz, init_distance(n)
         n = n + 1 
-    end do
+    end do !this loop will end when there have been 5000 generated points 
     ! close(10)
 
     ! Locate starting civilization closest to center
@@ -156,15 +148,6 @@ program sample
 
     civil_xyz(min_init_distance_id(1))%status = 1
     occupied = 1 
-    ! cpath = cpath + minimum_distance
-    ! print*,"(#occupied, #status = 1):", occupied, count(civil_xyz(:)%status == 1)
-
-    ! print*,"Starting distane : ", minimum_distance
-
-    ! print*, "Occupied = ", occupied, "failed = ", failed_counter, 'Static Time = ', clock, 'Dark energy dominated = ', tj
-    write(10,*) occupied, clock, tj, tj_matter
-    ! write(12,*) occupied,clock, tj, tj_matter
-    ! write(15,*) occupied, clock 
     
     ! Main simulation loop
     do while (occupied < N_pt)
@@ -187,7 +170,7 @@ program sample
             else if (civil_xyz(i)%status == 2) then 
                 minimum_distances(i) = civil_xyz(i)%remaining_distance
             end if 
-        end do
+        end do  !this loop will end when all status 1 planets find neighbors
         
         ! Step 2: Determine global minimum remaining distance step
         l_min_distances_id = minloc(minimum_distances(1:N_pt))
@@ -231,70 +214,49 @@ program sample
                     minimum_distances(i) = civil_xyz(i)%remaining_distance
                 end if 
             end if 
-        end do
-
-        !let's print out the number of status 1 planets. It should be 2 (the origin and the target)
-        
-        ! print*,clock,"(#occupied, #status = 1):", occupied, count(civil_xyz(:)%status == 1)
-        ! write(11,*) clock, occupied
-        ! write(15,*) occupied, clock 
-        write(10,*) occupied, clock, tj, tj_matter
-        ! print*, "Number of occupied sites = ", occupied , " | Clock = ", clock
-        ! write(11,*) occupied, clock, tj
-        ! write(11,*) occupied, clock
-        ! write(12,*) occupied, clock, tj, tj_matter
+        end do !this loop will end when all travelling planets moved 
         ti = tj 
         ti_matter = tj_matter
          
-    end do 
+    end do !this loop will end when all the planets are occupied
 
-    ! close(11)
-    ! close(12)
-    ! close(15)
-
-    ! print*, "Simulation Number: " , no_of_sims_counter, "| End time (s, D.E., M.D.): ", clock, tj, tj_matter 
-    ! print*, "Clock : ", clock 
-    ! print*, "Clock - Cpath : ", clock - cpath 
-    ! write(13, *) H, tj, tj_matter
-    ! write(12,*) occupied, clock, tj, tj_matter
-    ! print*, no_of_sims_counter
-    ! t_total = t_total + clock    !the total end times of all 500 simulations. Used for calculating the mean end times.
-    ! t_terminate_static(no_of_sims_counter) = clock  !store the end time to an array 
-    ! write(16,*) k, clock
-    ! print*, k, clock
-
-    !Reset values 
-    print*, 'Time elapsed: ', clock
-   
-end do
+    
+    print*, "k: ", k , "Time elapsed: ", clock
+    occupation_t_static(no_of_sims_counter) = clock
+end do !this loop will end when all 500 simulations are finished 
 ! close(16)
+
+
+
+    !calculate the mean and std
+    !mean
+    print*, "Calculating the statistics "
+    do i=1,No_of_sims
+        mean_time_s= mean_time_s + occupation_t_static(i)
+    end do 
+    mean_time_s = mean_time_s/No_of_sims !-> mean time of the after 5000 measurements 
     
-    
-! end do
+    !std 
+    do i = 1,No_of_sims
+        std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
+    end do 
+    std_static = sqrt(std_static/N_pt)
 
 
-! !calculate the statistics 
-! mean_time = t_total/No_of_sims
-
-! do i = 1,No_of_sims 
-!     print*,i, t_terminate_static(i)
-!     std_t_statistic = std_t_statistic + (t_terminate_static(i) - mean_time)**2
-! end do 
-
-! std_t_statistic = sqrt(std_t_statistic/(No_of_sims-1))
 
 
-    
+    print*, "Number of simulations: ", No_of_sims
+    print*, "mortality factor: ", k, "mean: ", mean_time_s, "std: ", std_static
+
+    write(10, *) k, mean_time_s, std_static
+
     call cpu_time(end_time)
-    
-    ! print*, "Average elapsed time (500 sims): ", mean_time 
-!     print*, "Standard deviation (500 sims): ", std_t_statistic
-!     print*, "Std/mean_time*100 : ", std_t_statistic/mean_time  
-    print*, "Number of unoccupied sites: ", count(civil_xyz(:)%status == 0 )
-    print*, "Number of occupied sites: ", count(civil_xyz(:)%status == 1 )
-    print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
-    print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
-    print*, 'Time elapsed: ', clock
+     
+    ! print*, "Number of unoccupied sites: ", count(civil_xyz(:)%status == 0 )
+    ! print*, "Number of occupied sites: ", count(civil_xyz(:)%status == 1 )
+    ! print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
+    ! print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
+    ! print*, 'Time elapsed: ', clock
     ! close(13)
     ! close(11)
 
