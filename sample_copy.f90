@@ -61,7 +61,7 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 5000, No_of_sims = 10
+    integer, parameter :: N_pt = 5000, No_of_sims = 500
     real(8), parameter :: H_fixed = 0.001 !, k = 0.6 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -99,7 +99,7 @@ program sample
 
     n = 1
     H = 0.06
-    k = 0.70_8
+    k = 0.75_8
     cpath = 0
     t_total = 0  
 
@@ -112,7 +112,7 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 10 , file = "sims=10,k=vary.dat", position = "APPEND", action = "write")
+    open(unit = 10 , file = "sims=500,k=vary.dat", position = "APPEND", action = "write")
     
     do no_of_sims_counter = 1, No_of_sims 
     
@@ -221,8 +221,24 @@ program sample
     end do !this loop will end when all the planets are occupied
 
     
-    print*, "k: ", k , "Time elapsed: ", clock
+    ! print*, "k: ", k , "Time elapsed: ", clock
     occupation_t_static(no_of_sims_counter) = clock
+    if(no_of_sims_counter == 1) then  
+        print*, "Done 1 sims"
+    else if(no_of_sims_counter == 10) then 
+        print*, "Done 10 sims"
+    else if(no_of_sims_counter == 20) then 
+        print*, "Done 20 sims"
+    else if(no_of_sims_counter == 50) then 
+        print*, "Done 50 sims"
+    else if(no_of_sims_counter == 100) then 
+        print*, "Done 100 sims"
+    else if(no_of_sims_counter == 250) then 
+        print*, "Done 250 sims"
+    else if(no_of_sims_counter == 500) then 
+        print*, "Done 500 sims"
+    end if 
+
 end do !this loop will end when all 500 simulations are finished 
 ! close(16)
 
