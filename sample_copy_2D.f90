@@ -8,11 +8,12 @@ module civilization_mod
 
     ! Derived type definition accessible to all routines using this module
     type :: civil 
-        real(8) :: rx, ry, rz
+        real(8) :: rx, ry
         integer :: status             ! 0 (unoccupied), 1 (active colony), 2 (travelling), 3 (targeted)
         integer :: target             ! index of the destination 
         real(8) :: total_distance = 0.0_8
         real(8) :: remaining_distance
+        logical, dimension(4) :: surrounded = .false.
     end type civil 
 
 contains
@@ -35,8 +36,7 @@ contains
         do j = 1, N_pt
             if (j /= i .and. civil_xyz(j)%status == 0) then 
                 dist_dummy = (civil_xyz(i)%rx - civil_xyz(j)%rx)**2 + &
-                                 (civil_xyz(i)%ry - civil_xyz(j)%ry)**2 + &
-                                 (civil_xyz(i)%rz - civil_xyz(j)%rz)**2
+                                 (civil_xyz(i)%ry - civil_xyz(j)%ry)**2 
 
                 if(dist_dummy < dist_min) then
                     dist_min = dist_dummy 
@@ -50,6 +50,70 @@ contains
 
     end subroutine find_neighbor
 
+    subroutine occupied_neighbor(i, N_pt, civil_xyz, retired)
+        integer, intent(in) :: i, N_pt
+        type(civil), intent(inout) :: civil_xyz(:)
+        integer, intent(inout) :: retired
+        
+        !local variable
+        real(8) :: hubble_sphere = 0.3  !serves as the max distance na i c check natin 
+        integer :: j
+        real(8) :: dist 
+
+        !separation vectors that would identify which quadrant the neighboring point is 
+        real(8) :: rx_separation, ry_separation
+
+        ! print*, "Checking if there are occupied planets in the neighborhood"
+        !we look for the nearest occupied neighbors to planet i in each quadrant 
+        do j = 1, N_pt
+            if(j == i .or. civil_xyz(j)%status == 0 .or. civil_xyz(j)%status == 2) then   ! if the planet is the same to the source planet or the planet is unoccupied, pass
+                ! we only consider planet surrounded if it is surrounded by occupied, retired, and target 
+                cycle
+            end if
+
+            ! check if the occupied point is outside the hubble sphere. 
+            ! we use the hubble sphere so that we won't need to check for all the points in space
+            ! we will only need to check for the neighborhood of the point 
+            rx_separation = civil_xyz(i)%rx - civil_xyz(j)%rx 
+            ry_separation = civil_xyz(i)%ry - civil_xyz(j)%ry 
+            
+
+            dist = rx_separation**2 + ry_separation**2 
+            ! dist = sqrt(dist)
+            if(dist > hubble_sphere**2) then
+                cycle
+            end if 
+
+            
+
+            ! print*, rx_separation, ry_separation, rz_separation
+            if(rx_separation >= 0 .and. ry_separation >= 0 ) then   !+++
+                civil_xyz(i)%surrounded(1) = .true. 
+            end if 
+
+            if(rx_separation < 0 .and. ry_separation >= 0 ) then !-++
+                civil_xyz(i)%surrounded(2) = .true.
+            end if 
+
+            if(rx_separation < 0 .and. ry_separation < 0 ) then !--+ 
+                civil_xyz(i)%surrounded(3) = .true.
+            end if 
+
+            if(rx_separation >= 0 .and. ry_separation < 0 ) then !+-+
+                civil_xyz(i)%surrounded(4) = .true.
+            end if 
+
+        end do 
+
+        if(all(civil_xyz(i)%surrounded)) then 
+                civil_xyz(i)%status = 4 
+                retired = retired + 1 
+                ! print*, "Planet ", i, "is retired."
+        end if 
+
+    end subroutine occupied_neighbor
+
+
 end module civilization_mod
 
 !------------------------------------------------------------------------------------------------------------
@@ -61,7 +125,7 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 100, No_of_sims = 1
+    integer, parameter :: N_pt = 5000, No_of_sims = 1
     real(8), parameter :: H_fixed = 0.001 !, k = 0.6 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -81,10 +145,8 @@ program sample
     integer(8) :: no_of_sims_counter
     real(8) :: cpath, t_total
     integer(8) :: seed
+    integer :: retired
 
-    !statistics variables 
-    real(8), dimension(No_of_sims) :: occupation_t_static 
-    real(8) :: mean_time_s = 0, std_static = 0
 
     call cpu_time(start_time)
     seed = 48
@@ -99,7 +161,7 @@ program sample
 
     n = 1
     H = 0.06
-    k = 0.0_8
+    k = 0.90_8
     cpath = 0
     t_total = 0  
 
@@ -112,8 +174,7 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 10 , file = "sims=500,k=vary.dat", position = "APPEND", action = "write")
-    open(unit = 20 , file = "status_checker,N=10,N_pt=100.dat", status = "replace", action = "write")
+    open(unit = 20 , file = "2D_status_checker,N=10,N_pt=100.dat", action = "write", status = "replace")
     
     do no_of_sims_counter = 1, No_of_sims 
     
@@ -126,17 +187,18 @@ program sample
     tj_matter = 0.0_8
     clock = 0.0_8
     n = 1
+    retired = 0
     ! H = H + 0.005
     ! k = k + 0.1
 
     do while (n <= N_pt)
         civil_xyz(n)%rx = 10.0_8 * pcg_random_real() - 5.0_8
         civil_xyz(n)%ry = 10.0_8 * pcg_random_real() - 5.0_8
-        civil_xyz(n)%rz = 10.0_8 * pcg_random_real() - 5.0_8
 
         civil_xyz(n)%status = 0
+        
 
-        init_distance(n) = civil_xyz(n)%rx**2 + civil_xyz(n)%ry**2 + civil_xyz(n)%rz**2
+        init_distance(n) = civil_xyz(n)%rx**2 + civil_xyz(n)%ry**2
 
         if (init_distance(n) > radius**2) cycle
         n = n + 1 
@@ -151,11 +213,16 @@ program sample
     occupied = 1 
     
     ! Main simulation loop
-    do while (occupied < 10)
+    do while (occupied < 5000)
         
         ! Step 1: Scan for active colonies (status 1) and assign targets
         do i = 1, N_pt
             if (civil_xyz(i)%status == 1) then 
+                call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
+
+                if(civil_xyz(i)%status == 4) then
+                    cycle
+                end if 
                 call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
 
                 ! Ensure a valid unoccupied neighbor was found
@@ -203,6 +270,7 @@ program sample
 
                     else  !the civilisation does not survive
                         civil_xyz(civil_xyz(i)%target)%status = 0
+
                         failed_counter = failed_counter + 1
                     
                     end if 
@@ -223,12 +291,12 @@ program sample
 
     !this loop is to visually see how the planets occupy their neighbors
     do i = 1, N_pt 
-        write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status
+        write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%status
     end do 
 
     
     ! print*, "k: ", k , "Time elapsed: ", clock
-    occupation_t_static(no_of_sims_counter) = clock
+    
     if(no_of_sims_counter == 1) then  
         print*, "Done 1 sims"
     else if(no_of_sims_counter == 10) then 
@@ -252,29 +320,16 @@ end do !this loop will end when all 500 simulations are finished
 
     !calculate the mean and std
     !mean
-    print*, "Calculating the statistics "
-    do i=1,No_of_sims
-        mean_time_s= mean_time_s + occupation_t_static(i)
-    end do 
-    mean_time_s = mean_time_s/No_of_sims !-> mean time of the after 5000 measurements 
     
-    !std 
-    do i = 1,No_of_sims
-        std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
-    end do 
-    std_static = sqrt(std_static/N_pt)
-    print*, "Number of simulations: ", No_of_sims
-    print*, "mortality factor: ", k, "mean: ", mean_time_s, "std: ", std_static
-
-    write(10, *) k, mean_time_s, std_static
 
     call cpu_time(end_time)
      
-    ! print*, "Number of unoccupied sites: ", count(civil_xyz(:)%status == 0 )
-    ! print*, "Number of occupied sites: ", count(civil_xyz(:)%status == 1 )
-    ! print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
-    ! print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
-    ! print*, 'Time elapsed: ', clock
+    print*, "Number of unoccupied sites: ", count(civil_xyz(:)%status == 0 )
+    print*, "Number of occupied sites: ", count(civil_xyz(:)%status == 1 )
+    print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
+    print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
+    print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
+    print*, 10, civil_xyz(10)%surrounded
     ! close(13)
     ! close(11)
     close(10)
