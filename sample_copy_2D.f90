@@ -20,7 +20,7 @@ contains
 
     subroutine find_neighbor(i, N_pt, civil_xyz, minimum_distance_id, minimum_distance)
         integer, intent(in) :: i, N_pt
-        type(civil), intent(in) :: civil_xyz(:)
+        type(civil), intent(inout) :: civil_xyz(:)
         
         ! Outputs must use intent(out)
         integer, intent(out) :: minimum_distance_id(1) 
@@ -28,6 +28,8 @@ contains
 
         integer :: j
         real(8) :: dist_min, dist_dummy
+        real(8) :: max_range = 0.30
+        
 
         ! Use huge() so non-matching sites are never picked by minloc
         dist_min = huge(1.0_8)
@@ -38,6 +40,8 @@ contains
                 dist_dummy = (civil_xyz(i)%rx - civil_xyz(j)%rx)**2 + &
                                  (civil_xyz(i)%ry - civil_xyz(j)%ry)**2 
 
+        
+
                 if(dist_dummy < dist_min) then
                     dist_min = dist_dummy 
                     minimum_distance_id(1) = j
@@ -47,6 +51,10 @@ contains
 
         ! minimum_distance_id = minloc(dist_n(1:N_pt))
         minimum_distance = sqrt(dist_min)
+        if(minimum_distance > max_range) then 
+            civil_xyz(i)%status = 4 !we convert it to retired if the nearest neighbor is outside its maximum range" 
+            minimum_distance = huge(1.0_8)
+        end if 
 
     end subroutine find_neighbor
 
@@ -213,17 +221,17 @@ program sample
     occupied = 1 
     
     ! Main simulation loop
-    do while (occupied < 5000)
+    do while (occupied < 4000)
         
         ! Step 1: Scan for active colonies (status 1) and assign targets
         do i = 1, N_pt
             if (civil_xyz(i)%status == 1) then 
-                call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
-
+                ! call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
+                call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
                 if(civil_xyz(i)%status == 4) then
                     cycle
                 end if 
-                call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
+                
 
                 ! Ensure a valid unoccupied neighbor was found
                 if (min_distance < huge(1.0_8) / 2.0_8) then
@@ -329,6 +337,7 @@ end do !this loop will end when all 500 simulations are finished
     print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
+    print*, "Failed occupation: ", failed_counter
     print*, 10, civil_xyz(10)%surrounded
     ! close(13)
     ! close(11)

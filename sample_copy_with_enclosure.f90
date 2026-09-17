@@ -31,14 +31,16 @@ contains
 
     subroutine find_neighbor(i, N_pt, civil_xyz, minimum_distance_id, minimum_distance)
         integer, intent(in) :: i, N_pt
-        type(civil), intent(in) :: civil_xyz(:)
+        type(civil), intent(inout) :: civil_xyz(:)
         
         ! Outputs must use intent(out)
         integer, intent(out) :: minimum_distance_id(1) 
         real(8), intent(out) :: minimum_distance
 
         integer :: j
-        real(8) :: dist_min, dist_dummy
+        real(8) :: dist_min, dist_dummy, max_range 
+
+        max_range = 0.7
 
         ! Use huge() so non-matching sites are never picked by minloc
         dist_min = huge(1.0_8)
@@ -59,86 +61,15 @@ contains
         ! minimum_distance_id = minloc(dist_n(1:N_pt))
         minimum_distance = sqrt(dist_min)
 
-    end subroutine find_neighbor
-
-
-    subroutine occupied_neighbor(i, N_pt, civil_xyz, retired)
-        integer, intent(in) :: i, N_pt
-        type(civil), intent(inout) :: civil_xyz(:)
-        integer, intent(inout) :: retired
-        
-        !local variable
-        real(8) :: hubble_sphere = 5  !serves as the max distance na i c check natin 
-        integer :: j
-        real(8) :: dist 
-
-        !separation vectors that would identify which quadrant the neighboring point is 
-        real(8) :: rx_separation, ry_separation, rz_separation 
-
-        ! print*, "Checking if there are occupied planets in the neighborhood"
-        !we look for the nearest occupied neighbors to planet i in each quadrant 
-        do j = 1, N_pt
-            if(j == i .or. civil_xyz(j)%status == 0 .or. civil_xyz(j)%status == 2) then   ! if the planet is the same to the source planet or the planet is unoccupied, pass
-                ! we only consider planet surrounded if it is surrounded by occupied, retired, and target 
-                cycle
-            end if
-
-            ! check if the occupied point is outside the hubble sphere. 
-            ! we use the hubble sphere so that we won't need to check for all the points in space
-            ! we will only need to check for the neighborhood of the point 
-            rx_separation = civil_xyz(i)%rx - civil_xyz(j)%rx 
-            ry_separation = civil_xyz(i)%ry - civil_xyz(j)%ry 
-            rz_separation = civil_xyz(i)%rz - civil_xyz(j)%rz
-
-            dist = rx_separation**2 + ry_separation**2 + rz_separation**2
-            ! dist = sqrt(dist)
-            if(dist > hubble_sphere**2) then
-                cycle
-            end if 
-
+        if(minimum_distance > max_range) then 
+            civil_xyz(i)%status = 4 !retired
+            minimum_distance = huge(1.0_8)
+        end if 
             
 
-            ! print*, rx_separation, ry_separation, rz_separation
-            if(rx_separation >= 0 .and. ry_separation >= 0 .and. rz_separation >= 0) then   !+++
-                civil_xyz(i)%surrounded(1) = .true. 
-            end if 
 
-            if(rx_separation < 0 .and. ry_separation >= 0 .and. rz_separation >= 0) then !-++
-                civil_xyz(i)%surrounded(2) = .true.
-            end if 
+    end subroutine find_neighbor
 
-            if(rx_separation < 0 .and. ry_separation < 0 .and. rz_separation >= 0) then !--+ 
-                civil_xyz(i)%surrounded(3) = .true.
-            end if 
-
-            if(rx_separation >= 0 .and. ry_separation < 0 .and. rz_separation >= 0) then !+-+
-                civil_xyz(i)%surrounded(4) = .true.
-            end if 
-
-            if(rx_separation >= 0 .and. ry_separation >= 0 .and. rz_separation < 0) then !++-
-                civil_xyz(i)%surrounded(5) = .true.
-            end if 
-
-            if(rx_separation < 0 .and. ry_separation >= 0 .and. rz_separation < 0) then !-+-
-                civil_xyz(i)%surrounded(6) = .true.
-            end if 
-
-            if(rx_separation < 0 .and. ry_separation < 0 .and. rz_separation < 0) then !---
-                civil_xyz(i)%surrounded(7) = .true.
-            end if 
-
-            if(rx_separation >= 0 .and. ry_separation < 0 .and. rz_separation < 0) then !+--
-                civil_xyz(i)%surrounded(8) = .true.
-            end if 
-        end do 
-
-        if(all(civil_xyz(i)%surrounded)) then 
-                civil_xyz(i)%status = 4 
-                retired = retired + 1 
-                ! print*, "Planet ", i, "is retired."
-        end if 
-
-    end subroutine occupied_neighbor
 
 end module civilization_mod
 
@@ -151,8 +82,9 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 5000, No_of_sims = 10
-    real(8), parameter :: k = 0.0, H_fixed = 0.001
+    integer, parameter :: N_pt = 5000, No_of_sims = 1
+    real(8), parameter :: k = 0.95, H_fixed = 0.001
+
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
     integer, dimension(1) :: min_dist_id
@@ -193,7 +125,9 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
+    ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
+    open(unit = 20 , file = "3D_status_checker,N_pt=5000.dat", action = "write", status = "replace")
+    open(unit = 10 , file = "3D_with_enclosure_static.dat", position = "APPEND", action = "write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -223,7 +157,6 @@ do no_of_sims_counter = 1, No_of_sims
             civil_xyz(n)%target = 0
             civil_xyz(n)%total_distance = 0.0_8
             civil_xyz(n)%remaining_distance = 0.0_8
-            civil_xyz(n)%surrounded = .false.
 
             init_distance(n) = civil_xyz(n)%rx**2 + civil_xyz(n)%ry**2 + civil_xyz(n)%rz**2
 
@@ -253,13 +186,13 @@ do no_of_sims_counter = 1, No_of_sims
             if (civil_xyz(i)%status == 1) then 
                 !after scanning for occupied planet, we have to check first if it is already surrounded. 
                 ! If it is, update the status to 4 (retired) and move on to the next planet
-                call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
 
+                call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
                 if(civil_xyz(i)%status == 4) then
                     cycle
                 end if 
 
-                call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
+                
 
                 ! Ensure a valid unoccupied neighbor was found
                 if (min_distance < huge(1.0_8) / 2.0_8) then
@@ -319,6 +252,7 @@ do no_of_sims_counter = 1, No_of_sims
         ti = tj 
         ti_matter = tj_matter
     end do !-> this loop will end when all the planets are occupied 
+    write(10,*) k, clock
     
 
     occupation_t_static(no_of_sims_counter) = clock
@@ -340,6 +274,11 @@ do no_of_sims_counter = 1, No_of_sims
 
 end do !-> this loop will terminate after 500 simulations 
 
+!this loop is to visually see how the planets occupy their neighbors
+    do i = 1, N_pt 
+        write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status
+    end do 
+
 
 
     !calculate the mean and std
@@ -357,7 +296,7 @@ end do !-> this loop will terminate after 500 simulations
     std_static = sqrt(std_static/N_pt)
     print*, "Number of simulations: ", No_of_sims
     print*, "mortality factor: ", k, "mean: ", mean_time_s, "std: ", std_static
-    write(10, *) k, mean_time_s, std_static
+    ! write(10, *) k, mean_time_s, std_static
 !-------------------------------------------------------------------------------------------------------
 
     print*, "Results : ", occupied,clock, tj, tj_matter
@@ -370,6 +309,7 @@ end do !-> this loop will terminate after 500 simulations
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
     close(10)
+    close(20)
 
 
     
