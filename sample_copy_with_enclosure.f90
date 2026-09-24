@@ -40,7 +40,7 @@ contains
         integer :: j
         real(8) :: dist_min, dist_dummy, max_range 
 
-        max_range = 0.7
+        max_range = 5.0
 
         ! Use huge() so non-matching sites are never picked by minloc
         dist_min = huge(1.0_8)
@@ -82,7 +82,7 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 5000, No_of_sims = 1
+    integer, parameter :: N_pt = 10000, No_of_sims = 1
     real(8), parameter :: k = 0.95, H_fixed = 0.001
 
     integer :: occupied
@@ -126,8 +126,8 @@ program sample
     minimum_distances = huge(1.0_8) 
 
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
-    open(unit = 20 , file = "3D_status_checker,N_pt=5000.dat", action = "write", status = "replace")
-    open(unit = 10 , file = "3D_with_enclosure_static.dat", position = "APPEND", action = "write")
+    open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=1,hb=5.0.dat", action = "write", status = "replace")
+    open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=1,hb=5.0.dat", position = "APPEND", action = "write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars

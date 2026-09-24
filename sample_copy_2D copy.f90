@@ -1,6 +1,3 @@
-! This code is the 2d version of the percolation problem. Here, there is a maximum range where an occupied planet find its neighbor. This approach is inspired from the study of the propagation of fire. Citation Rodolfo Maduro Almeida and Elbert E N Macau 2011 J. Phys.: Conf. Ser. 285 012038
-! DOI 10.1088/1742-6596/285/1/012038
-! ___________________________________________________________________________
 module civilization_mod
     use pcg_module
     implicit none
@@ -21,6 +18,16 @@ module civilization_mod
 
 contains
 
+    function distance(i, j, civil_xyz) result(dist)
+        integer, intent(in) :: i,j
+        type(civil), intent(in) :: civil_xyz(:)
+
+        real(8):: dist
+
+        dist = (civil_xyz(i)%rx - civil_xyz(j)%rx)**2 + &
+                                    (civil_xyz(i)%ry - civil_xyz(j)%ry)**2 
+    end function distance
+
     subroutine find_neighbor(i, N_pt, civil_xyz, minimum_distance_id, minimum_distance)
         integer, intent(in) :: i, N_pt
         type(civil), intent(inout) :: civil_xyz(:)
@@ -31,7 +38,7 @@ contains
 
         integer :: j
         real(8) :: dist_min, dist_dummy
-        real(8) :: max_range = 1.0
+        real(8) :: max_range = 0.30
         
 
         ! Use huge() so non-matching sites are never picked by minloc
@@ -124,6 +131,45 @@ contains
 
     end subroutine occupied_neighbor
 
+    function area_of_triangle(a,b,c,civil_xyz) result(area)
+        integer, intent(in) :: a,b,c 
+        type(civil),intent(inout) :: civil_xyz(:)
+        real(8) :: area 
+
+        real(8) :: x1, x2, x3, y1,y2,y3 
+
+        x1 = civil_xyz(a)%rx
+        x2 = civil_xyz(b)%rx 
+        x3 = civil_xyz(c)%rx 
+
+        y1 = civil_xyz(a)%ry
+        y2 = civil_xyz(b)%ry
+        y3 = civil_xyz(c)%ry
+
+        area = 0.5*abs(x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))
+
+    end function area_of_triangle
+
+    subroutine triangulation(i, N_pt, civil_xyz, retired)
+        integer, intent(in) :: i, N_pt
+        type(civil), intent(inout) :: civil_xyz(:)
+        integer, intent(inout) :: retired
+
+
+        !local variables
+        real(8) :: max_range = 0.5 !maximum range of planets that can enclose another planet
+        integer :: q,r,s
+
+         
+    
+
+        real(8) :: A, A1,A2,A3
+        
+
+
+        
+    end subroutine triangulation 
+
 
 end module civilization_mod
 
@@ -136,7 +182,7 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 5000, No_of_sims = 1
+    integer, parameter :: N_pt = 1000, No_of_sims = 1
     real(8), parameter :: H_fixed = 0.001 !, k = 0.6 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -185,7 +231,7 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 20 , file = "2D_quadrant_check,N=vary,N_pt=5000.dat", action = "write", status = "replace")
+    open(unit = 20 , file = "2D_status_checker,N=10,N_pt=100.dat", action = "write", status = "replace")
     
     do no_of_sims_counter = 1, No_of_sims 
     
@@ -229,11 +275,11 @@ program sample
         ! Step 1: Scan for active colonies (status 1) and assign targets
         do i = 1, N_pt
             if (civil_xyz(i)%status == 1) then 
-                call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
-                if(civil_xyz(i)%status == 4) then
-                    cycle
-                end if 
+                ! call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
+                
+                call triangulation(i, N_pt, civil_xyz, retired)
                 call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
+
                 if(civil_xyz(i)%status == 4) then
                     cycle
                 end if 
@@ -343,6 +389,7 @@ end do !this loop will end when all 500 simulations are finished
     print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
+    print*, "Failed occupation: ", failed_counter
     print*, 10, civil_xyz(10)%surrounded
     ! close(13)
     ! close(11)
@@ -354,7 +401,6 @@ end do !this loop will end when all 500 simulations are finished
     
 
 end program sample
-
 
 
 
