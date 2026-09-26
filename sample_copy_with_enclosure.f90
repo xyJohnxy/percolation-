@@ -40,7 +40,7 @@ contains
         integer :: j
         real(8) :: dist_min, dist_dummy, max_range 
 
-        max_range = 0.9
+        max_range = 3.0
 
         ! Use huge() so non-matching sites are never picked by minloc
         dist_min = huge(1.0_8)
@@ -81,7 +81,7 @@ program sample
     real :: start_time, end_time 
     integer :: i, n
     integer, parameter :: N_pt = 5000, No_of_sims = 500
-    real(8), parameter :: k = 0.30, H_fixed = 0.001
+    real(8), parameter :: k = 0.95, H_fixed = 0.001
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
