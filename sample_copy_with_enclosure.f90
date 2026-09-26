@@ -40,7 +40,7 @@ contains
         integer :: j
         real(8) :: dist_min, dist_dummy, max_range 
 
-        max_range = 5.0
+        max_range = 0.9
 
         ! Use huge() so non-matching sites are never picked by minloc
         dist_min = huge(1.0_8)
@@ -66,8 +66,6 @@ contains
             minimum_distance = huge(1.0_8)
         end if 
             
-
-
     end subroutine find_neighbor
 
 
@@ -82,8 +80,8 @@ program sample
 
     real :: start_time, end_time 
     integer :: i, n
-    integer, parameter :: N_pt = 10000, No_of_sims = 1
-    real(8), parameter :: k = 0.95, H_fixed = 0.001
+    integer, parameter :: N_pt = 5000, No_of_sims = 500
+    real(8), parameter :: k = 0.30, H_fixed = 0.001
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -102,8 +100,12 @@ program sample
     integer(8) :: seed = 48, no_of_sims_counter = 1 
 
     !statistics variables 
-    real(8), dimension(No_of_sims) :: occupation_t_static 
+    real(8), dimension(No_of_sims) :: occupation_t_static, occupation_t_de, occupation_t_m
     real(8) :: mean_time_s = 0, std_static = 0
+    real(8) :: mean_time_de = 0, std_de = 0
+    real(8) :: mean_time_m = 0, std_m = 0
+
+    integer :: totally_occupied = 0 ! checks for the number of simulation that successfully occupied all the planets
 
     call cpu_time(start_time)
     occupied = 0
@@ -126,8 +128,8 @@ program sample
     minimum_distances = huge(1.0_8) 
 
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
-    open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=1,hb=5.0.dat", action = "write", status = "replace")
-    open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=1,hb=5.0.dat", position = "APPEND", action = "write")
+    ! open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=500,hb=0.6.dat", action = "write", status = "replace")
+    open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -172,12 +174,6 @@ do no_of_sims_counter = 1, No_of_sims
     civil_xyz(min_init_distance_id(1))%status = 1
     occupied = 1 
 
-    ! print*, "Occupied = ", occupied, "failed = ", failed_counter, 'Static Time = ', clock, 'Dark energy dominated = ', tj
-    ! write(11,*) occupied, clock, tj
-    ! write(12,*) occupied,clock, tj, tj_matter
-    write(15,*) occupied,clock, tj, tj_matter
-    
-    
     ! Main simulation loop
     do while (occupied < N_pt)
         
@@ -191,8 +187,6 @@ do no_of_sims_counter = 1, No_of_sims
                 if(civil_xyz(i)%status == 4) then
                     cycle
                 end if 
-
-                
 
                 ! Ensure a valid unoccupied neighbor was found
                 if (min_distance < huge(1.0_8) / 2.0_8) then
@@ -252,10 +246,14 @@ do no_of_sims_counter = 1, No_of_sims
         ti = tj 
         ti_matter = tj_matter
     end do !-> this loop will end when all the planets are occupied 
-    write(10,*) k, clock
-    
 
+    if(occupied == N_pt) then 
+        totally_occupied = totally_occupied+1
+    end if 
+    
     occupation_t_static(no_of_sims_counter) = clock
+    occupation_t_de(no_of_sims_counter) = tj 
+    occupation_t_m(no_of_sims_counter) = tj_matter
     if(no_of_sims_counter == 1) then  
         print*, "Done 1 sims"
     else if(no_of_sims_counter == 10) then 
@@ -268,6 +266,8 @@ do no_of_sims_counter = 1, No_of_sims
         print*, "Done 100 sims"
     else if(no_of_sims_counter == 250) then 
         print*, "Done 250 sims"
+    else if(no_of_sims_counter == 400) then 
+        print*, "Done 400 sims"
     else if(no_of_sims_counter == 500) then 
         print*, "Done 500 sims"
     end if 
@@ -275,9 +275,9 @@ do no_of_sims_counter = 1, No_of_sims
 end do !-> this loop will terminate after 500 simulations 
 
 !this loop is to visually see how the planets occupy their neighbors
-    do i = 1, N_pt 
-        write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status
-    end do 
+    ! do i = 1, N_pt 
+    !     write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status
+    ! end do 
 
 
 
@@ -286,22 +286,37 @@ end do !-> this loop will terminate after 500 simulations
     print*, "Calculating the statistics "
     do i=1,No_of_sims
         mean_time_s= mean_time_s + occupation_t_static(i)
+        mean_time_de= mean_time_de + occupation_t_de(i)
+        mean_time_m= mean_time_m + occupation_t_m(i)
     end do 
-    mean_time_s = mean_time_s/No_of_sims !-> mean time of the after 5000 measurements 
+    mean_time_s = mean_time_s/No_of_sims !-> mean time after 500 simulations 
+    mean_time_de = mean_time_de/No_of_sims
+    mean_time_m = mean_time_m/No_of_sims
     
     !std 
     do i = 1,No_of_sims
         std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
+        std_de = std_de + (occupation_t_de(i)-mean_time_de)**2 
+        std_m = std_m + (occupation_t_m(i)-mean_time_m)**2 
     end do 
+
     std_static = sqrt(std_static/N_pt)
+    std_de= sqrt(std_de/N_pt)
+    std_m = sqrt(std_m/N_pt)
+
     print*, "Number of simulations: ", No_of_sims
-    print*, "mortality factor: ", k, "mean: ", mean_time_s, "std: ", std_static
-    ! write(10, *) k, mean_time_s, std_static
+    print*, "mortality factor: ", k
+    print*, "Static: mean: ", mean_time_s, "std: ", std_static
+    print*, "Dark energy: mean: ", mean_time_de, "std: ", std_de
+    print*, "Matter: mean: ", mean_time_m, "std: ", std_m
+
+    write(10, *) k, mean_time_s, mean_time_de, mean_time_m
 !-------------------------------------------------------------------------------------------------------
 
     print*, "Results : ", occupied,clock, tj, tj_matter
     call cpu_time(end_time)
     print*, 'Time elapsed: ', end_time - start_time
+    print*, "Number of simulations that did not occupy all the planets", No_of_sims - totally_occupied
 
     print*, "Number of unoccupied sites: ", count(civil_xyz(:)%status == 0 )
     print*, "Number of occupied sites: ", count(civil_xyz(:)%status == 1 )
@@ -309,7 +324,7 @@ end do !-> this loop will terminate after 500 simulations
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
     close(10)
-    close(20)
+    ! close(20)
 
 
     
