@@ -81,7 +81,7 @@ program sample
     real :: start_time, end_time 
     integer :: i, n
     integer, parameter :: N_pt = 5000, No_of_sims = 500
-    real(8), parameter :: k = 0.95, H_fixed = 0.001
+    real(8), parameter :: k = 0.20, H_fixed = 0.001
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
