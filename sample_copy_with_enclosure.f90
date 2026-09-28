@@ -129,8 +129,8 @@ program sample
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
     ! open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=500,hb=0.6.dat", action = "write", status = "replace")
     ! open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
-    ! open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.50,max_range=10.0.dat", status = "replace" , action = "write")
-    open(unit = 12 , file = "n(t)_vs_t,dark_energy,max_range=0.9,sims=1,H=0.12.dat", status = "replace" , action = "write")
+    open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.0,max_range=0.9.dat", status = "replace" , action = "write")
+    ! open(unit = 12 , file = "n(t)_vs_t,dark_energy,max_range=0.9,sims=1,H=0.12.dat", status = "replace" , action = "write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -143,7 +143,7 @@ do no_of_sims_counter = 1, No_of_sims
         tj_matter = 0.0_8
         clock = 0.0_8
         n = 1
-        H = 0.12
+        H = 0.02
 
         ! 2. Reset array tracking (CRITICAL FIX)
         minimum_distances = huge(1.0_8) 
@@ -244,7 +244,7 @@ do no_of_sims_counter = 1, No_of_sims
             end if 
         end do
 
-        write(12,*) occupied, clock, tj,tj_matter 
+        write(11,*) occupied, clock, tj,tj_matter 
         
         if(mod(occupied,100)==0) then 
         print*, occupied, clock, tj, tj_matter
@@ -288,34 +288,34 @@ end do !-> this loop will terminate after 500 simulations
 
 
 
-    ! !calculate the mean and std
-    ! !mean
-    ! print*, "Calculating the statistics "
-    ! do i=1,No_of_sims
-    !     mean_time_s= mean_time_s + occupation_t_static(i)
-    !     mean_time_de= mean_time_de + occupation_t_de(i)
-    !     mean_time_m= mean_time_m + occupation_t_m(i)
-    ! end do 
-    ! mean_time_s = mean_time_s/No_of_sims !-> mean time after 500 simulations 
-    ! mean_time_de = mean_time_de/No_of_sims
-    ! mean_time_m = mean_time_m/No_of_sims
+    !calculate the mean and std
+    !mean
+    print*, "Calculating the statistics "
+    do i=1,No_of_sims
+        mean_time_s= mean_time_s + occupation_t_static(i)
+        mean_time_de= mean_time_de + occupation_t_de(i)
+        mean_time_m= mean_time_m + occupation_t_m(i)
+    end do 
+    mean_time_s = mean_time_s/No_of_sims !-> mean time after 500 simulations 
+    mean_time_de = mean_time_de/No_of_sims
+    mean_time_m = mean_time_m/No_of_sims
     
-    ! !std 
-    ! do i = 1,No_of_sims
-    !     std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
-    !     std_de = std_de + (occupation_t_de(i)-mean_time_de)**2 
-    !     std_m = std_m + (occupation_t_m(i)-mean_time_m)**2 
-    ! end do 
+    !std 
+    do i = 1,No_of_sims
+        std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
+        std_de = std_de + (occupation_t_de(i)-mean_time_de)**2 
+        std_m = std_m + (occupation_t_m(i)-mean_time_m)**2 
+    end do 
 
-    ! std_static = sqrt(std_static/N_pt)
-    ! std_de= sqrt(std_de/N_pt)
-    ! std_m = sqrt(std_m/N_pt)
+    std_static = sqrt(std_static/N_pt)
+    std_de= sqrt(std_de/N_pt)
+    std_m = sqrt(std_m/N_pt)
 
-    ! print*, "Number of simulations: ", No_of_sims
-    ! print*, "mortality factor: ", k
-    ! print*, "Static: mean: ", mean_time_s, "std: ", std_static
-    ! print*, "Dark energy: mean: ", mean_time_de, "std: ", std_de
-    ! print*, "Matter: mean: ", mean_time_m, "std: ", std_m
+    print*, "Number of simulations: ", No_of_sims
+    print*, "mortality factor: ", k
+    print*, "Static: mean: ", mean_time_s, "std: ", std_static
+    print*, "Dark energy: mean: ", mean_time_de, "std: ", std_de
+    print*, "Matter: mean: ", mean_time_m, "std: ", std_m
 
     ! write(10, *) k, mean_time_s, mean_time_de, mean_time_m
 !-------------------------------------------------------------------------------------------------------
@@ -333,6 +333,7 @@ end do !-> this loop will terminate after 500 simulations
     close(10)
     ! close(20)
     close(12)
+    close(11)
 
 
     
