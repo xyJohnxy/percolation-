@@ -80,7 +80,7 @@ program sample
     real :: start_time, end_time 
     integer :: i, n
     integer, parameter :: N_pt = 5000, No_of_sims = 1
-    real(8), parameter :: k = 0.0, H_fixed = 0.001
+    real(8), parameter :: k_fixed = 0.0, H_fixed = 0.001
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -92,7 +92,7 @@ program sample
     real(8) :: minimum_distance
     real(8), allocatable :: dist_n(:) 
     type(civil), allocatable :: civil_xyz(:)
-    real(8) :: ti, tj, clock, H
+    real(8) :: ti, tj, clock, H, k 
     real(8) :: ti_matter, tj_matter
     real(8) :: random_number !death rate, random_number
     integer :: failed_counter, retired 
@@ -104,19 +104,14 @@ program sample
     real(8) :: mean_time_de = 0, std_de = 0
     real(8) :: mean_time_m = 0, std_m = 0
 
+    !cumulative variables 
+    real(8), dimension(N_pt) :: cum_clock_static  !cumulative clock of static occupation time. Example: clock_static(1000) = cumulative time of when the number of occupied = 1000
+    real(8), dimension(N_pt) :: cum_tj_dark_energy
+    real(8), dimension(N_pt) :: cum_tj_matter
+
     integer :: totally_occupied = 0 ! checks for the number of simulation that successfully occupied all the planets
 
     call cpu_time(start_time)
-    occupied = 0
-    retired = 0
-    failed_counter = 0
-    ti = 0.0_8
-    tj = 0.0_8
-    ti_matter = 0.0_8
-    tj_matter = 0.0_8
-    clock = 0.0_8
-    n = 1
-    H = 0.04
 
     print*, "working"
     ! Allocate array sizes 
@@ -129,8 +124,9 @@ program sample
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
     ! open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=500,hb=0.6.dat", action = "write", status = "replace")
     ! open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
-    open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.0,max_range=0.9.dat", status = "replace" , action = "write")
+    ! open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.0,max_range=0.9.dat", status = "replace" , action = "write")
     ! open(unit = 12 , file = "n(t)_vs_t,dark_energy,max_range=0.9,sims=1,H=0.12.dat", status = "replace" , action = "write")
+    open(unit = 13, file = "average_n_vs_t,sims=500,k=0,H=0.02.dat", status = "replace", action="write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -144,13 +140,14 @@ do no_of_sims_counter = 1, No_of_sims
         clock = 0.0_8
         n = 1
         H = 0.02
+        k = 0.0
 
         ! 2. Reset array tracking (CRITICAL FIX)
         minimum_distances = huge(1.0_8) 
 
         call pcg_init(seed, no_of_sims_counter)
 
-        ! 3. Generate points and reset ALL struct fields (CRITICAL FIX)
+        ! 3. Generate points 
         do while (n <= N_pt)
             civil_xyz(n)%rx = 10.0_8 * pcg_random_real() - 5.0_8
             civil_xyz(n)%ry = 10.0_8 * pcg_random_real() - 5.0_8
@@ -174,6 +171,12 @@ do no_of_sims_counter = 1, No_of_sims
 
     civil_xyz(min_init_distance_id(1))%status = 1
     occupied = 1 
+
+    !update the cumulative occuputation time
+    cum_clock_static(occupied) = cum_clock_static(occupied) + 0 
+    cum_tj_dark_energy(occupied) = cum_tj_dark_energy(occupied) + 0
+    cum_tj_matter(occupied) = cum_tj_matter(occupied) + 0 
+    
 
     ! Main simulation loop
     do while (occupied < N_pt)
@@ -230,6 +233,16 @@ do no_of_sims_counter = 1, No_of_sims
                     if(random_number > k) then   !the civilisation survives
                         civil_xyz(civil_xyz(i)%target)%status = 1 
                         occupied = occupied + 1 
+
+
+                        ! print*, occupied, clock, tj,tj_matter 
+
+                        !update the cumulative occuputation time whenever a new planet is occupied 
+                        cum_clock_static(occupied) = cum_clock_static(occupied) + clock
+                        cum_tj_dark_energy(occupied) = cum_tj_dark_energy(occupied) + tj
+                        cum_tj_matter(occupied) = cum_tj_matter(occupied) + tj_matter
+
+                        
                         
 
                     else  !the civilisation does not survive
@@ -243,12 +256,10 @@ do no_of_sims_counter = 1, No_of_sims
                 end if 
             end if 
         end do
-
-        write(11,*) occupied, clock, tj,tj_matter 
         
-        if(mod(occupied,100)==0) then 
-        print*, occupied, clock, tj, tj_matter
-        end if 
+        ! if(mod(occupied,100)==0) then 
+        ! print*, occupied, clock, tj, tj_matter
+        ! end if 
 
         ti = tj 
         ti_matter = tj_matter
@@ -286,6 +297,16 @@ end do !-> this loop will terminate after 500 simulations
     !     write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status
     ! end do 
 
+    !take the average values of the cumulative time after seval number of simulations
+    do i=1,N_pt
+        cum_clock_static(i) = cum_clock_static(i)/No_of_sims
+        cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
+        cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
+
+        write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
+
+    end do 
+
 
 
     !calculate the mean and std
@@ -296,6 +317,7 @@ end do !-> this loop will terminate after 500 simulations
         mean_time_de= mean_time_de + occupation_t_de(i)
         mean_time_m= mean_time_m + occupation_t_m(i)
     end do 
+
     mean_time_s = mean_time_s/No_of_sims !-> mean time after 500 simulations 
     mean_time_de = mean_time_de/No_of_sims
     mean_time_m = mean_time_m/No_of_sims
@@ -330,10 +352,10 @@ end do !-> this loop will terminate after 500 simulations
     print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
-    close(10)
+    close(13)
     ! close(20)
-    close(12)
-    close(11)
+    ! close(12)
+    ! close(11)
 
 
     
