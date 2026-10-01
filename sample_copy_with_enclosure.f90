@@ -13,7 +13,6 @@ module civilization_mod
         integer :: target             ! index of the destination 
         real(8) :: total_distance = 0.0_8
         real(8) :: remaining_distance
-        logical, dimension(8) :: surrounded = .false.
     end type civil 
 
 contains
@@ -44,6 +43,7 @@ contains
         ! Use huge() so non-matching sites are never picked by minloc
         dist_min = huge(1.0_8)
         minimum_distance_id(1) =0 !-> default value 
+        
         
         
         do j = 1, N_pt
@@ -80,7 +80,7 @@ program sample
     real :: start_time, end_time 
     integer :: i, n
     integer, parameter :: N_pt = 5000, No_of_sims = 1
-    real(8), parameter :: k_fixed = 0.0, H_fixed = 0.001
+    real(8), parameter :: k = 0.0, H = 0.02
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -92,11 +92,11 @@ program sample
     real(8) :: minimum_distance
     real(8), allocatable :: dist_n(:) 
     type(civil), allocatable :: civil_xyz(:)
-    real(8) :: ti, tj, clock, H, k 
+    real(8) :: ti, tj, clock
     real(8) :: ti_matter, tj_matter
     real(8) :: random_number !death rate, random_number
     integer :: failed_counter, retired 
-    integer(8) :: seed = 48, no_of_sims_counter = 1 
+    integer(8) :: seed = 23, no_of_sims_counter = 1 
 
     !statistics variables 
     real(8), dimension(No_of_sims) :: occupation_t_static, occupation_t_de, occupation_t_m
@@ -108,6 +108,7 @@ program sample
     real(8), dimension(N_pt) :: cum_clock_static  !cumulative clock of static occupation time. Example: clock_static(1000) = cumulative time of when the number of occupied = 1000
     real(8), dimension(N_pt) :: cum_tj_dark_energy
     real(8), dimension(N_pt) :: cum_tj_matter
+    real(8), dimension(N_pt) :: cpath 
 
     integer :: totally_occupied = 0 ! checks for the number of simulation that successfully occupied all the planets
 
@@ -119,14 +120,19 @@ program sample
     allocate(dist_n(N_pt))
     allocate(minimum_distances(N_pt))
 
-    minimum_distances = huge(1.0_8) 
+    
+    cpath = 0 
 
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
     ! open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=500,hb=0.6.dat", action = "write", status = "replace")
     ! open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
     ! open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.0,max_range=0.9.dat", status = "replace" , action = "write")
     ! open(unit = 12 , file = "n(t)_vs_t,dark_energy,max_range=0.9,sims=1,H=0.12.dat", status = "replace" , action = "write")
-    open(unit = 13, file = "average_n_vs_t,sims=500,k=0,H=0.02.dat", status = "replace", action="write")
+    ! open(unit = 13, file = "average_n_vs_t,sims=10,k=0.0,H=0.4.dat", status = "replace", action="write")
+    ! open(unit = 14, file = "cpath_orig,sims=500,k=0.0,H=0.02.dat", status = "replace", action="write")
+
+
+    open(unit = 20, file = "3D_with_enclosure_static,occupied=1,orig,plot,k=0,sims=1.dat", status = "replace", action="write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -139,8 +145,8 @@ do no_of_sims_counter = 1, No_of_sims
         tj_matter = 0.0_8
         clock = 0.0_8
         n = 1
-        H = 0.02
-        k = 0.0
+        ! H = 0.02
+        ! k = 0.20
 
         ! 2. Reset array tracking (CRITICAL FIX)
         minimum_distances = huge(1.0_8) 
@@ -179,7 +185,7 @@ do no_of_sims_counter = 1, No_of_sims
     
 
     ! Main simulation loop
-    do while (occupied < N_pt)
+    do while (occupied < 1)
         
         ! Step 1: Scan for active colonies (status 1) and assign targets
         do i = 1, N_pt
@@ -187,29 +193,37 @@ do no_of_sims_counter = 1, No_of_sims
                 !after scanning for occupied planet, we have to check first if it is already surrounded. 
                 ! If it is, update the status to 4 (retired) and move on to the next planet
 
-                call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
-                if(civil_xyz(i)%status == 4) then
-                    cycle
+                !check if there are still possible targets
+                if(count(civil_xyz(:)%status == 0) > 0 ) then 
+                    call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
+                    if(civil_xyz(i)%status == 4) then
+                        cycle
+                    end if 
+                    ! Ensure a valid unoccupied neighbor was found
+                    if (min_distance < huge(1.0_8) / 2.0_8) then
+                        civil_xyz(i)%target = min_dist_id(1)
+                        civil_xyz(i)%status = 2  ! Now travelling
+                        civil_xyz(min_dist_id(1))%status = 3  ! Target reserved
+
+                        civil_xyz(i)%total_distance = civil_xyz(i)%total_distance + min_distance
+                        civil_xyz(i)%remaining_distance = min_distance
+                        minimum_distances(i) = min_distance   !stores the distance to the array of minimum distances
+                    end if
+                else 
+                    !no possible targets remaining
+                    civil_xyz(i)%status = 4
+                    minimum_distances(i) =  0
                 end if 
 
-                ! Ensure a valid unoccupied neighbor was found
-                if (min_distance < huge(1.0_8) / 2.0_8) then
-                    civil_xyz(i)%target = min_dist_id(1)
-                    civil_xyz(i)%status = 2  ! Now travelling
-                    civil_xyz(min_dist_id(1))%status = 3  ! Target reserved
-
-                    civil_xyz(i)%total_distance = civil_xyz(i)%total_distance + min_distance
-                    civil_xyz(i)%remaining_distance = min_distance
-                    minimum_distances(i) = min_distance   !stores the distance to the array of minimum distances
-                end if
             else if (civil_xyz(i)%status == 2) then 
                 minimum_distances(i) = civil_xyz(i)%remaining_distance
             end if 
 
         end do
         
-        ! Step 2: Determine global minimum remaining distance step
-        l_min_distances_id = minloc(minimum_distances(1:N_pt))
+        
+        ! Step 2: Determine global minimum remaining distance step not equal to zero 
+        l_min_distances_id = minloc(minimum_distances(1:N_pt), mask = (minimum_distances(1:N_pt)/=0))
         l_min_distance = minimum_distances(l_min_distances_id(1))
 
         ! Guard against infinite loop if no targets remain
@@ -290,20 +304,28 @@ do no_of_sims_counter = 1, No_of_sims
         print*, "Done 500 sims"
     end if 
 
+    do i = 1,N_pt
+        cpath(i) = cpath(i) + civil_xyz(i)%total_distance
+    end do
+
 end do !-> this loop will terminate after 500 simulations 
 
-!this loop is to visually see how the planets occupy their neighbors
-    ! do i = 1, N_pt 
-    !     write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status
-    ! end do 
+! this loop is to visually see how the planets occupy their neighbors
+    do i = 1, N_pt 
+        write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status  !3d
+        ! write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%status  !2d
+    end do 
 
     !take the average values of the cumulative time after seval number of simulations
     do i=1,N_pt
-        cum_clock_static(i) = cum_clock_static(i)/No_of_sims
-        cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
-        cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
+        ! cum_clock_static(i) = cum_clock_static(i)/No_of_sims
+        ! cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
+        ! cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
 
-        write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
+        cpath(i) = cpath(i)/N_pt 
+
+        ! write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
+        ! write(14,*) i , cpath(i)
 
     end do 
 
@@ -311,33 +333,33 @@ end do !-> this loop will terminate after 500 simulations
 
     !calculate the mean and std
     !mean
-    print*, "Calculating the statistics "
-    do i=1,No_of_sims
-        mean_time_s= mean_time_s + occupation_t_static(i)
-        mean_time_de= mean_time_de + occupation_t_de(i)
-        mean_time_m= mean_time_m + occupation_t_m(i)
-    end do 
+    ! print*, "Calculating the statistics "
+    ! do i=1,No_of_sims
+    !     mean_time_s= mean_time_s + occupation_t_static(i)
+    !     mean_time_de= mean_time_de + occupation_t_de(i)
+    !     mean_time_m= mean_time_m + occupation_t_m(i)
+    ! end do 
 
-    mean_time_s = mean_time_s/No_of_sims !-> mean time after 500 simulations 
-    mean_time_de = mean_time_de/No_of_sims
-    mean_time_m = mean_time_m/No_of_sims
+    ! mean_time_s = mean_time_s/No_of_sims !-> mean time after 500 simulations 
+    ! mean_time_de = mean_time_de/No_of_sims
+    ! mean_time_m = mean_time_m/No_of_sims
     
-    !std 
-    do i = 1,No_of_sims
-        std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
-        std_de = std_de + (occupation_t_de(i)-mean_time_de)**2 
-        std_m = std_m + (occupation_t_m(i)-mean_time_m)**2 
-    end do 
+    ! !std 
+    ! do i = 1,No_of_sims
+    !     std_static = std_static + (occupation_t_static(i)-mean_time_s)**2 
+    !     std_de = std_de + (occupation_t_de(i)-mean_time_de)**2 
+    !     std_m = std_m + (occupation_t_m(i)-mean_time_m)**2 
+    ! end do 
 
-    std_static = sqrt(std_static/N_pt)
-    std_de= sqrt(std_de/N_pt)
-    std_m = sqrt(std_m/N_pt)
+    ! std_static = sqrt(std_static/N_pt)
+    ! std_de= sqrt(std_de/N_pt)
+    ! std_m = sqrt(std_m/N_pt)
 
     print*, "Number of simulations: ", No_of_sims
     print*, "mortality factor: ", k
-    print*, "Static: mean: ", mean_time_s, "std: ", std_static
-    print*, "Dark energy: mean: ", mean_time_de, "std: ", std_de
-    print*, "Matter: mean: ", mean_time_m, "std: ", std_m
+    ! print*, "Static: mean: ", mean_time_s, "std: ", std_static
+    ! print*, "Dark energy: mean: ", mean_time_de, "std: ", std_de
+    ! print*, "Matter: mean: ", mean_time_m, "std: ", std_m
 
     ! write(10, *) k, mean_time_s, mean_time_de, mean_time_m
 !-------------------------------------------------------------------------------------------------------
@@ -352,12 +374,13 @@ end do !-> this loop will terminate after 500 simulations
     print*, "Number of travelling: ", count(civil_xyz(:)%status == 2 )
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
-    close(13)
-    ! close(20)
+    ! close(13)
+    close(20)
     ! close(12)
     ! close(11)
+    ! close(14)
 
-
+    print*, civil_xyz(250)%total_distance
     
 
 end program sample
