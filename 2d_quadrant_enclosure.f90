@@ -185,7 +185,7 @@ program sample
 
     minimum_distances = huge(1.0_8) 
 
-    open(unit = 20 , file = "2D_quadrant_check,N=vary,N_pt=5000.dat", action = "write", status = "replace")
+    open(unit = 20 , file = "2D_figures.dat", action = "write", status = "replace")
     
     do no_of_sims_counter = 1, No_of_sims 
     
@@ -224,15 +224,16 @@ program sample
     occupied = 1 
     
     ! Main simulation loop
-    do while (occupied < 1)
+    do while (occupied < 5000)
         
         ! Step 1: Scan for active colonies (status 1) and assign targets
         do i = 1, N_pt
             if (civil_xyz(i)%status == 1) then 
-                call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
-                if(civil_xyz(i)%status == 4) then
-                    cycle
-                end if 
+                ! call occupied_neighbor(i, N_pt, civil_xyz, retired)  !we update the civil%surrounded array
+                ! if(civil_xyz(i)%status == 4) then
+                !     cycle
+                ! end if 
+
                 call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
                 if(civil_xyz(i)%status == 4) then
                     cycle

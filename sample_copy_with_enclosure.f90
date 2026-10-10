@@ -129,7 +129,7 @@ program sample
 
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
     ! open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=500,hb=0.6.dat", action = "write", status = "replace")
-    open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
+    open(unit = 10 , file = "2D_images.dat", position = "APPEND", action = "write")
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -164,6 +164,8 @@ do no_of_sims_counter = 1, No_of_sims
 
             if (init_distance(n) > radius**2) cycle
             n = n + 1 
+
+            write(10,*) civil_xyz(n)%rx, civil_xyz(n)%ry
         end do
     
 
