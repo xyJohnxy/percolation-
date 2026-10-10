@@ -60,10 +60,10 @@ contains
         ! minimum_distance_id = minloc(dist_n(1:N_pt))
         minimum_distance = sqrt(dist_min)
 
-        if(minimum_distance > max_range) then 
-            civil_xyz(i)%status = 4 !retired
-            minimum_distance = huge(1.0_8)
-        end if 
+        ! if(minimum_distance > max_range) then 
+        !     civil_xyz(i)%status = 4 !retired
+        !     minimum_distance = huge(1.0_8)
+        ! end if 
             
     end subroutine find_neighbor
 
@@ -78,9 +78,9 @@ program sample
     implicit none 
 
     real :: start_time, end_time 
-    integer :: i, n
-    integer, parameter :: N_pt = 5000, No_of_sims = 1
-    real(8), parameter :: k = 0.0, H = 0.02
+    integer :: i, n, j 
+    integer, parameter :: N_pt = 5000, No_of_sims = 500
+    real(8), parameter :: k = 0.80, H = 0.02
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -108,8 +108,9 @@ program sample
     real(8), dimension(N_pt) :: cum_clock_static  !cumulative clock of static occupation time. Example: clock_static(1000) = cumulative time of when the number of occupied = 1000
     real(8), dimension(N_pt) :: cum_tj_dark_energy
     real(8), dimension(N_pt) :: cum_tj_matter
-    real(8), dimension(N_pt) :: cpath 
-
+    real(8), dimension(No_of_sims) :: cpath 
+    real(8) :: mean_cpath = 0 
+ 
     integer :: totally_occupied = 0 ! checks for the number of simulation that successfully occupied all the planets
 
     call cpu_time(start_time)
@@ -120,19 +121,22 @@ program sample
     allocate(dist_n(N_pt))
     allocate(minimum_distances(N_pt))
 
-    
-    cpath = 0 
+
 
     ! open(unit = 10 , file = "sims=10,k=vary, type=octant_enclosed.dat", position = "APPEND", action = "write")
     ! open(unit = 20 , file = "3D_with_enclosure_static,plot,k=vary,sims=500,hb=0.6.dat", action = "write", status = "replace")
     ! open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
     ! open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.0,max_range=0.9.dat", status = "replace" , action = "write")
     ! open(unit = 12 , file = "n(t)_vs_t,dark_energy,max_range=0.9,sims=1,H=0.12.dat", status = "replace" , action = "write")
-    ! open(unit = 13, file = "average_n_vs_t,sims=10,k=0.0,H=0.4.dat", status = "replace", action="write")
-    ! open(unit = 14, file = "cpath_orig,sims=500,k=0.0,H=0.02.dat", status = "replace", action="write")
+    open(unit = 13, file = "original,average_n_vs_t,sims=500,k=0.80,H=0.02.dat", status = "replace", action="write")
+    ! open(unit = 14, file = "cpath_orig,sims=500,k=0.0,H=0.02.dat", position = "APPEND", action="write") DONE ALREADY
 
 
-    open(unit = 20, file = "3D_with_enclosure_static,occupied=1,orig,plot,k=0,sims=1.dat", status = "replace", action="write")
+    ! open(unit = 20, file = "3D_with_enclosure_static,occupied=1,orig,plot,k=0,sims=1.dat", status = "replace", action="write")
+! do j = 1, 10
+!     k = 0.0 + (j-1)*0.10
+!     mean_cpath = 0 
+!     cpath = 0
 
 do no_of_sims_counter = 1, No_of_sims 
         ! 1. Re-initialize scalars
@@ -185,7 +189,7 @@ do no_of_sims_counter = 1, No_of_sims
     
 
     ! Main simulation loop
-    do while (occupied < 1)
+    do while (occupied < 5000)
         
         ! Step 1: Scan for active colonies (status 1) and assign targets
         do i = 1, N_pt
@@ -231,6 +235,7 @@ do no_of_sims_counter = 1, No_of_sims
 
         ! Step 3: Advance global simulation clock
         clock = clock + l_min_distance
+        cpath(no_of_sims_counter) = cpath(no_of_sims_counter) + l_min_distance
         tj = (-1/H)*log(exp(-H*ti) - H*l_min_distance) !for dark energy
         tj_matter=  (2.0/(3.0*H))*((1 + (3.0/2.0)*H*ti_matter)**(1.0/3.0) + H*l_min_distance/2.0)**3.0 - (2.0/(3.0*H))
 
@@ -304,33 +309,38 @@ do no_of_sims_counter = 1, No_of_sims
         print*, "Done 500 sims"
     end if 
 
-    do i = 1,N_pt
-        cpath(i) = cpath(i) + civil_xyz(i)%total_distance
-    end do
-
+    
+ 
 end do !-> this loop will terminate after 500 simulations 
 
 ! this loop is to visually see how the planets occupy their neighbors
-    do i = 1, N_pt 
-        write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status  !3d
-        ! write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%status  !2d
-    end do 
+    ! do i = 1, N_pt 
+    !     write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%rz, civil_xyz(i)%status  !3d
+    !     ! write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%status  !2d
+    ! end do 
 
-    !take the average values of the cumulative time after seval number of simulations
+    !take the average values of the cumulative time after several number of simulations
     do i=1,N_pt
-        ! cum_clock_static(i) = cum_clock_static(i)/No_of_sims
-        ! cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
-        ! cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
+        cum_clock_static(i) = cum_clock_static(i)/No_of_sims
+        cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
+        cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
 
-        cpath(i) = cpath(i)/N_pt 
+    
 
-        ! write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
-        ! write(14,*) i , cpath(i)
+!         mean_cpath = cpath(i) + mean_cpath 
 
-    end do 
+        write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
+!         ! write(14,*) i , cpath(i)
+
+!     end do 
+
+!     mean_cpath = mean_cpath/No_of_sims
+
+!     write(14,*) k, mean_cpath
+!     print*, k, mean_cpath
 
 
-
+end do 
     !calculate the mean and std
     !mean
     ! print*, "Calculating the statistics "
@@ -354,7 +364,7 @@ end do !-> this loop will terminate after 500 simulations
     ! std_static = sqrt(std_static/N_pt)
     ! std_de= sqrt(std_de/N_pt)
     ! std_m = sqrt(std_m/N_pt)
-
+    print*, "Average cpath: ", mean_cpath
     print*, "Number of simulations: ", No_of_sims
     print*, "mortality factor: ", k
     ! print*, "Static: mean: ", mean_time_s, "std: ", std_static
@@ -375,10 +385,10 @@ end do !-> this loop will terminate after 500 simulations
     print*, "Number of target: ", count(civil_xyz(:)%status == 3 )
     print*, "Number of retired: ", count(civil_xyz(:)%status == 4 )
     ! close(13)
-    close(20)
+    ! close(20)
     ! close(12)
     ! close(11)
-    ! close(14)
+    close(14)
 
     print*, civil_xyz(250)%total_distance
     
