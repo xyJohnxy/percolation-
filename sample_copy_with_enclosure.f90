@@ -80,7 +80,7 @@ program sample
     real :: start_time, end_time 
     integer :: i, n, j 
     integer, parameter :: N_pt = 5000, No_of_sims = 500
-    real(8), parameter :: k = 0.80, H = 0.02
+    real(8), parameter :: k = 0.85, H = 0.02
 
     integer :: occupied
     integer, dimension(1) :: min_init_distance_id
@@ -128,8 +128,8 @@ program sample
     ! open(unit = 10 , file = "3D_with_enclosure_static,curve,k=vary,sims=500,hb=3.0.dat", position = "APPEND", action = "write")
     ! open(unit = 11 , file = "n(t)_vs_t,sims=1,k=0.0,max_range=0.9.dat", status = "replace" , action = "write")
     ! open(unit = 12 , file = "n(t)_vs_t,dark_energy,max_range=0.9,sims=1,H=0.12.dat", status = "replace" , action = "write")
-    open(unit = 13, file = "original,average_n_vs_t,sims=500,k=0.80,H=0.02.dat", status = "replace", action="write")
-    ! open(unit = 14, file = "cpath_orig,sims=500,k=0.0,H=0.02.dat", position = "APPEND", action="write") DONE ALREADY
+    ! open(unit = 13, file = "original,average_n_vs_t,sims=500,k=0.80,H=0.02.dat", status = "replace", action="write")
+    open(unit = 14, file = "cpath_orig,sims=500,k=0.0,H=0.02.dat", position = "APPEND", action="write") ! DONE ALREADY
 
 
     ! open(unit = 20, file = "3D_with_enclosure_static,occupied=1,orig,plot,k=0,sims=1.dat", status = "replace", action="write")
@@ -200,9 +200,9 @@ do no_of_sims_counter = 1, No_of_sims
                 !check if there are still possible targets
                 if(count(civil_xyz(:)%status == 0) > 0 ) then 
                     call find_neighbor(i, N_pt, civil_xyz, min_dist_id, min_distance)
-                    if(civil_xyz(i)%status == 4) then
-                        cycle
-                    end if 
+                    ! if(civil_xyz(i)%status == 4) then
+                    !     cycle
+                    ! end if 
                     ! Ensure a valid unoccupied neighbor was found
                     if (min_distance < huge(1.0_8) / 2.0_8) then
                         civil_xyz(i)%target = min_dist_id(1)
@@ -215,7 +215,7 @@ do no_of_sims_counter = 1, No_of_sims
                     end if
                 else 
                     !no possible targets remaining
-                    civil_xyz(i)%status = 4
+                    ! civil_xyz(i)%status = 4
                     minimum_distances(i) =  0
                 end if 
 
@@ -235,7 +235,7 @@ do no_of_sims_counter = 1, No_of_sims
 
         ! Step 3: Advance global simulation clock
         clock = clock + l_min_distance
-        cpath(no_of_sims_counter) = cpath(no_of_sims_counter) + l_min_distance
+        cpath(no_of_sims_counter) = cpath(no_of_sims_counter) + l_min_distance  !total cpath taken per simulation
         tj = (-1/H)*log(exp(-H*ti) - H*l_min_distance) !for dark energy
         tj_matter=  (2.0/(3.0*H))*((1 + (3.0/2.0)*H*ti_matter)**(1.0/3.0) + H*l_min_distance/2.0)**3.0 - (2.0/(3.0*H))
 
@@ -319,28 +319,31 @@ end do !-> this loop will terminate after 500 simulations
     !     ! write(20,*) civil_xyz(i)%rx, civil_xyz(i)%ry, civil_xyz(i)%status  !2d
     ! end do 
 
-    !take the average values of the cumulative time after several number of simulations
-    do i=1,N_pt
-        cum_clock_static(i) = cum_clock_static(i)/No_of_sims
-        cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
-        cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
+    !take the average values of the cumulative time after several number of simulations. cum_clock_static(5) is the average time to occupy 5 planets in 500 simulations
+    ! do i=1,N_pt
+    !     cum_clock_static(i) = cum_clock_static(i)/No_of_sims
+    !     cum_tj_dark_energy(i) = cum_tj_dark_energy(i)/No_of_sims
+    !     cum_tj_matter(i)=cum_tj_matter(i)/No_of_sims
 
     
 
 !         mean_cpath = cpath(i) + mean_cpath 
 
-        write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
-!         ! write(14,*) i , cpath(i)
+        ! write(13,*) i, cum_clock_static(i), cum_tj_dark_energy(i), cum_tj_matter(i)
+        ! write(14,*) i , cpath(i)
 
-!     end do 
+    ! end do 
 
-!     mean_cpath = mean_cpath/No_of_sims
+    do i = 1, No_of_sims
+        !we add all the cpath in 500 sims and divide it by 500
+        mean_cpath = cpath(i) + mean_cpath   
+    end do 
+    mean_cpath = mean_cpath/No_of_sims
+    write(14,*) k, mean_cpath
+    print*, k, mean_cpath
 
-!     write(14,*) k, mean_cpath
-!     print*, k, mean_cpath
 
-
-end do 
+! end do 
     !calculate the mean and std
     !mean
     ! print*, "Calculating the statistics "
